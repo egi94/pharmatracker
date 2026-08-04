@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 import os
 
 PRODUCT_URL = "https://www.pharmashopi.com/minoxidil-bailleul-solution-pour-application-cutanee-homme-flacons-de-60ml-xml-704_24979_24894-140875.html#product-info-detailed-anchor"
-TARGET_PRICE = 17.99
+TARGET_PRICE = 11'.99
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
