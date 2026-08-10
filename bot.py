@@ -10,8 +10,10 @@ import os
 PRODUCT_URL = "https://www.pharmashopi.com/minoxidil-bailleul-solution-pour-application-cutanee-homme-flacons-de-60ml-xml-704_24979_24894-140875.html#product-info-detailed-anchor"
 TARGET_PRICE = 17.98
 
-# AMAZON
-AMAZON_URL = "https://www.amazon.it/Pok%C3%A9mon-Fuoriclasse-dellespansione-Megaevoluzione-promozionale/dp/B0G3YJ6DBZ"
+# AMAZON – usiamo la pagina di ricerca (affidabile)
+AMAZON_SEARCH_URL = "https://www.amazon.it/s?k=ascesa+eroica+set+allenatore"
+AMAZON_ASIN = "B0G3YJ6DBZ"
+AMAZON_PRODUCT_URL = "https://www.amazon.it/dp/B0G3YJ6DBZ"
 
 # TELEGRAM
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
@@ -51,46 +53,35 @@ def get_pharmashopi_price():
 
 
 # ============================
-# AMAZON SCRAPER (CORRETTO)
+# AMAZON SCRAPER (PAGINA DI RICERCA)
 # ============================
 
-def get_amazon_price(url):
+def get_amazon_price_from_search():
     headers = {
         "User-Agent": "Mozilla/5.0",
         "Accept-Language": "it-IT,it;q=0.9"
     }
 
-    r = requests.get(url, headers=headers)
+    r = requests.get(AMAZON_SEARCH_URL, headers=headers)
     soup = BeautifulSoup(r.text, "html.parser")
 
-    # 1) CONTROLLO DISPONIBILITÀ
-    availability_el = soup.select_one("#availability span")
-    if availability_el:
-        availability_text = availability_el.get_text(strip=True).lower()
+    # Trova il blocco del prodotto tramite ASIN
+    product_block = soup.select_one(f"div[data-asin='{AMAZON_ASIN}']")
+    if not product_block:
+        return None  # non appare nella ricerca → NON disponibile
 
-        unavailable_phrases = [
-            "attualmente non disponibile",
-            "non sappiamo se e quando",
-            "non disponibile",
-            "temporaneamente non disponibile"
-        ]
-
-        if any(p in availability_text for p in unavailable_phrases):
-            return None  # prodotto NON disponibile
-
-    # 2) ESTRAZIONE PREZZO SOLO SE DISPONIBILE
-
-    offscreen = soup.select_one(".a-price .a-offscreen")
+    # Cerca il prezzo reale
+    offscreen = product_block.select_one(".a-price .a-offscreen")
     if offscreen:
         txt = offscreen.get_text(strip=True)
         txt = txt.replace("€", "").replace(",", ".")
         try:
             return float(txt)
         except:
-            pass
+            return None
 
-    whole = soup.select_one(".a-price .a-price-whole")
-    fraction = soup.select_one(".a-price .a-price-fraction")
+    whole = product_block.select_one(".a-price .a-price-whole")
+    fraction = product_block.select_one(".a-price .a-price-fraction")
 
     if whole and fraction:
         price_text = whole.get_text(strip=True) + "." + fraction.get_text(strip=True)
@@ -98,25 +89,9 @@ def get_amazon_price(url):
         try:
             return float(price_text)
         except:
-            pass
+            return None
 
-    selectors = [
-        "#priceblock_ourprice",
-        "#priceblock_dealprice",
-        ".a-price .a-offscreen"
-    ]
-
-    for sel in selectors:
-        el = soup.select_one(sel)
-        if el:
-            txt = el.get_text(strip=True)
-            txt = txt.replace("€", "").replace(",", ".")
-            try:
-                return float(txt)
-            except:
-                pass
-
-    return None
+    return None  # nessun prezzo → NON disponibile
 
 
 # ============================
@@ -134,15 +109,15 @@ def main():
     else:
         print("Pharmashopi: nessuna notifica.")
 
-    # AMAZON
-    amazon_price = get_amazon_price(AMAZON_URL)
+    # AMAZON (pagina di ricerca)
+    amazon_price = get_amazon_price_from_search()
     print(f"Amazon prezzo attuale: {amazon_price}")
 
     if amazon_price is not None:
         send_telegram(
             f"🟢 Il prodotto Amazon è DISPONIBILE!\n"
             f"Prezzo: {amazon_price} €\n"
-            f"{AMAZON_URL}"
+            f"{AMAZON_PRODUCT_URL}"
         )
     else:
         print("Amazon: ancora non disponibile.")
