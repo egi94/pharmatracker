@@ -51,7 +51,7 @@ def get_pharmashopi_price():
 
 
 # ============================
-# AMAZON SCRAPER
+# AMAZON SCRAPER (CORRETTO)
 # ============================
 
 def get_amazon_price(url):
@@ -59,10 +59,27 @@ def get_amazon_price(url):
         "User-Agent": "Mozilla/5.0",
         "Accept-Language": "it-IT,it;q=0.9"
     }
+
     r = requests.get(url, headers=headers)
     soup = BeautifulSoup(r.text, "html.parser")
 
-    # 1) Versione accessibile (spesso la più affidabile)
+    # 1) CONTROLLO DISPONIBILITÀ
+    availability_el = soup.select_one("#availability span")
+    if availability_el:
+        availability_text = availability_el.get_text(strip=True).lower()
+
+        unavailable_phrases = [
+            "attualmente non disponibile",
+            "non sappiamo se e quando",
+            "non disponibile",
+            "temporaneamente non disponibile"
+        ]
+
+        if any(p in availability_text for p in unavailable_phrases):
+            return None  # prodotto NON disponibile
+
+    # 2) ESTRAZIONE PREZZO SOLO SE DISPONIBILE
+
     offscreen = soup.select_one(".a-price .a-offscreen")
     if offscreen:
         txt = offscreen.get_text(strip=True)
@@ -72,7 +89,6 @@ def get_amazon_price(url):
         except:
             pass
 
-    # 2) Prezzo spezzato: whole + fraction
     whole = soup.select_one(".a-price .a-price-whole")
     fraction = soup.select_one(".a-price .a-price-fraction")
 
@@ -84,7 +100,6 @@ def get_amazon_price(url):
         except:
             pass
 
-    # 3) Selettori classici Amazon
     selectors = [
         "#priceblock_ourprice",
         "#priceblock_dealprice",
@@ -101,7 +116,7 @@ def get_amazon_price(url):
             except:
                 pass
 
-    return None  # prodotto non disponibile
+    return None
 
 
 # ============================
@@ -110,7 +125,7 @@ def get_amazon_price(url):
 
 def main():
 
-    # --- PHARMASHOPI ---
+    # PHARMASHOPI
     price = get_pharmashopi_price()
     print(f"Pharmashopi prezzo attuale: {price}")
 
@@ -119,7 +134,7 @@ def main():
     else:
         print("Pharmashopi: nessuna notifica.")
 
-    # --- AMAZON ---
+    # AMAZON
     amazon_price = get_amazon_price(AMAZON_URL)
     print(f"Amazon prezzo attuale: {amazon_price}")
 
