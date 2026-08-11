@@ -10,9 +10,8 @@ import os
 PRODUCT_URL = "https://www.pharmashopi.com/minoxidil-bailleul-solution-pour-application-cutanee-homme-flacons-de-60ml-xml-704_24979_24894-140875.html#product-info-detailed-anchor"
 TARGET_PRICE = 17.98
 
-# AMAZON – usiamo la pagina di ricerca (affidabile)
+# AMAZON SEARCH PAGE
 AMAZON_SEARCH_URL = "https://www.amazon.it/s?k=ascesa+eroica+set+allenatore"
-AMAZON_ASIN = "B0G3YJ6DBZ"
 AMAZON_PRODUCT_URL = "https://www.amazon.it/dp/B0G3YJ6DBZ"
 
 # TELEGRAM
@@ -53,7 +52,7 @@ def get_pharmashopi_price():
 
 
 # ============================
-# AMAZON SCRAPER (PAGINA DI RICERCA)
+# AMAZON SCRAPER (TITOLO, NON ASIN)
 # ============================
 
 def get_amazon_price_from_search():
@@ -65,33 +64,46 @@ def get_amazon_price_from_search():
     r = requests.get(AMAZON_SEARCH_URL, headers=headers)
     soup = BeautifulSoup(r.text, "html.parser")
 
-    # Trova il blocco del prodotto tramite ASIN
-    product_block = soup.select_one(f"div[data-asin='{AMAZON_ASIN}']")
-    if not product_block:
-        return None  # non appare nella ricerca → NON disponibile
+    # Trova tutti i risultati
+    results = soup.select("div.s-result-item")
 
-    # Cerca il prezzo reale
-    offscreen = product_block.select_one(".a-price .a-offscreen")
-    if offscreen:
-        txt = offscreen.get_text(strip=True)
-        txt = txt.replace("€", "").replace(",", ".")
-        try:
-            return float(txt)
-        except:
+    for item in results:
+        title_el = item.select_one("h2 a span")
+        if not title_el:
+            continue
+
+        title = title_el.get_text(strip=True).lower()
+
+        # Identificazione tramite parole chiave
+        if ("fuoriclasse" in title or
+            "megaevoluzione" in title or
+            "ascesa eroica" in title):
+
+            # Cerca il prezzo
+            offscreen = item.select_one(".a-price .a-offscreen")
+            if offscreen:
+                txt = offscreen.get_text(strip=True)
+                txt = txt.replace("€", "").replace(",", ".")
+                try:
+                    return float(txt)
+                except:
+                    return None
+
+            whole = item.select_one(".a-price .a-price-whole")
+            fraction = item.select_one(".a-price .a-price-fraction")
+
+            if whole and fraction:
+                price_text = whole.get_text(strip=True) + "." + fraction.get_text(strip=True)
+                price_text = price_text.replace("€", "")
+                try:
+                    return float(price_text)
+                except:
+                    return None
+
+            # Nessun prezzo → NON disponibile
             return None
 
-    whole = product_block.select_one(".a-price .a-price-whole")
-    fraction = product_block.select_one(".a-price .a-price-fraction")
-
-    if whole and fraction:
-        price_text = whole.get_text(strip=True) + "." + fraction.get_text(strip=True)
-        price_text = price_text.replace("€", "")
-        try:
-            return float(price_text)
-        except:
-            return None
-
-    return None  # nessun prezzo → NON disponibile
+    return None  # prodotto non trovato nella ricerca
 
 
 # ============================
